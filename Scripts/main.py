@@ -135,7 +135,7 @@ class OllamaChat:
     def rename_chat(self, chat_id, new_title):
         self.db.rename_chat(chat_id, new_title)
 
-    def send_message(self, message, stream=False, chat_id=None):
+    def send_message(self, message, stream=False, chat_id=None, system_prompt=None):
         if chat_id is None:
             if self.current_chat_id is None:
                 self.start_new_chat()
@@ -150,6 +150,10 @@ class OllamaChat:
         # Формируем сообщения для Ollama API
         messages = [{"role": "user" if role == "user" else "assistant", "content": content}
                     for role, content, _ in reversed(history)]
+
+        # Добавляем системный промт в начало, если он задан
+        if system_prompt:
+            messages.insert(0, {"role": "system", "content": system_prompt})
 
         # Отправляем запрос к Ollama API с потоковым выводом
         response = requests.post(
