@@ -267,12 +267,6 @@ class ChatManager(OllamaChat):
                 print("Неправильный параметр - ID чата должен быть числом")
                 return
 
-            # Удаление всех чатов (когда command_text пуст)
-            confirm = input("Вы уверены, что хотите удалить все чаты? (y/n): ")
-            if confirm.lower() != 'y':
-                print("Удаление отменено")
-                return
-
             for select_chat in self.list_chats():
                 self.delete_chat(select_chat["chat_id"])
             print("Все чаты удалены!")
@@ -306,10 +300,6 @@ class ChatManager(OllamaChat):
         if "/history" in command:
             # Обработка флага удаления истории
             if command_text == "-d":
-                confirm = input("Вы уверены, что хотите удалить всю историю? (y/n): ")
-                if confirm.lower() != 'y':
-                    print("Удаление отменено")
-                    return
                 self.db.clear_chat_history(chat_id=self.current_chat_id)
                 print("История текущего чата удалена!")
                 return
