@@ -34,17 +34,54 @@ class EnglishTeacher:
 
     def generate_exercise(self, ex_type):
         prompt = f"""
-            Generate a {ex_type} exercise for {self.user_level} level English learner.
-            Include:
-            1. Clear instructions (in English only)
-            2. The exercise itself (in English only)
-            3. The correct answer (hidden until requested)
+            Your task is to generate an **English language learning exercise**. Follow all rules carefully.
             
-            Important restrictions:
-            - Use ONLY English for all exercise content (instructions, questions, answers)
-            - You may use Russian ONLY for meta-commentary or explanations about the exercise structure if absolutely necessary
-            - Never mix languages within the exercise materials
-            - Never provide translations unless explicitly requested
+            ===========================
+            🔹 BASIC PARAMETERS
+            ===========================
+            
+            - **EXERCISE TYPE**: {ex_type}
+            - **LEVEL**: {self.user_level} (based on CEFR: A1–C2)
+            - **LANGUAGE**: Use **ENGLISH ONLY** in the task and answers.
+            
+            ===========================
+            🔹 REQUIRED STRUCTURE
+            ===========================
+            
+            1. [Instructions]  
+               - Write 1–2 clear, short sentences.  
+               - Start with a **verb** (e.g. "Choose", "Match", "Rewrite").  
+               - Indicate how the learner should respond.
+            
+            2. [Exercise]  
+               - Include **3 to 5** items  
+               - Each item must:  
+                 • Be self-contained  
+                 • Use vocabulary and grammar appropriate for {self.user_level}  
+                 • Include context if needed for understanding
+            
+            3. [Answer]  
+               - Provide only the correct answers  
+               - Use the same numbering  
+               - No explanations unless asked
+            
+            ===========================
+            🔴 STRICT RULES
+            ===========================
+            
+            - No translations or mixed languages.
+            - Do not use Russian in the main content.
+            - If absolutely needed: use short teacher notes in Cyrillic in square brackets  
+              Example: [Для отработки вопросов в Past Simple]
+            
+            ===========================
+            🟦 OPTIONAL EXPLANATION
+            ===========================
+            
+            If appropriate, you may add an [Explanation] section:  
+            - Use **simple English**  
+            - Max 3–4 sentences  
+            - Only if it adds value or clarifies tricky items
         """
 
         response = self.chat_manager.send_message(
@@ -62,32 +99,34 @@ class EnglishTeacher:
 
     def correct_text(self, text):
         prompt = f"""
-            **Task:** Correct this English text and provide detailed explanations for all errors.  
-    
-            **Text to correct:**  
-            "{text}"  
-    
-            **Response format requirements:**  
-            1. **Corrected Text:**  
-               - Provide the fully corrected version of the text with proper grammar, spelling, punctuation, and word choice.  
-               - Preserve the original meaning unless it is ambiguous.  
-    
-            2. **Error Analysis:**  
-               - List each mistake in the order they appear in the text.  
-               - For each error, specify:  
-                 - **Type of error** (grammar, spelling, word order, tense, article usage, etc.)  
-                 - **Incorrect form** (quote the exact problematic part)  
-                 - **Corrected form** (provide the fixed version)  
-                 - **Explanation** (briefly explain why it's wrong and the rule applied)  
-    
-            3. **Additional Notes (if needed):**  
-               - If the text has stylistic issues (awkward phrasing, unnatural word choice), suggest improvements.  
-               - If a sentence is ambiguous, provide possible interpretations.  
-    
-            **Important:**  
-            - Be precise—do not invent mistakes that don’t exist.  
-            - If the text is already correct, state: "No errors found."  
-            - Use clear, simple English in explanations.  
+            **Task:** Please correct the English text and explain all detected errors in detail.
+            
+            **Text to correct:** "{text}"
+            
+            **Instructions for the response:**
+            
+            1. **Corrected Text:**
+               - Write the corrected version of the entire text.
+               - Fix all grammar, spelling, punctuation, and word choice issues.
+               - Keep the original meaning unless the sentence is ambiguous.
+            
+            2. **Error Analysis:**
+               - List all errors in the order they appear in the original text.
+               - For each error, include:
+                 - **Error Type** (e.g., grammar, spelling, word order, verb tense, article usage, etc.)
+                 - **Incorrect Form** (quote the original mistake)
+                 - **Corrected Form** (show the correct version)
+                 - **Explanation** (briefly explain what was wrong and what rule was applied)
+            
+            3. **Additional Notes (if applicable):**
+               - Suggest style improvements (e.g., unnatural phrases or awkward wording).
+               - If any part of the text is ambiguous, explain possible meanings.
+            
+            **Important:**
+            - Be accurate. Do NOT make up errors that are not in the text.
+            - If the text is completely correct, simply write: "No errors found."
+            - Use simple, clear English for all explanations.
+            - **If the answer is in Russian, write everything using the Cyrillic alphabet (кириллица). Do NOT use Latin letters in Russian text.**
         """
 
         return self.chat_manager.send_message(
