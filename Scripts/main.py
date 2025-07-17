@@ -119,13 +119,13 @@ class OllamaChat:
         self.db = ChatDatabase()
         self.current_chat_id = None
         if self.db.list_chats():
-            self.current_chat_id = self.db.list_chats()[-1]['chat_id']
+            self.current_chat_id = self.list_chats()[0]['chat_id']
 
     def start_new_chat(self, title=None):
         if not self.list_chats():
             title = "Новый чат"
         if title is None:
-            title = f"Чат {int(self.list_chats()[-1]['chat_id']) + 1}"
+            title = f"Чат {int(self.list_chats()[0]['chat_id']) + 1}"
         self.current_chat_id = self.db.create_chat(title)
         return self.current_chat_id
 

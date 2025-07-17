@@ -9,7 +9,7 @@ class EnglishTeacher:
             'correction': "Исправления ошибок",
             'exercises': "Упражнения"
         }
-        self.current_mode = 'chat'
+        self.current_mode = None
         self.exercise_types = ['grammar', 'vocabulary', 'translation']
         self.current_exercise = None
         self.user_level = 'beginner'  # Можно определить через тест
