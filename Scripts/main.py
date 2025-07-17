@@ -456,7 +456,7 @@ assistant: Наша история чата выглядит следующим 
                 return
 
             # Вызываем нейросеть для сжатия
-            answer = self.send_message(message="None", chat_id=chat_id, system_prompt=system_prompt)
+            answer = self.send_message(message=None, chat_id=chat_id, system_prompt=system_prompt)
             compressed_history = ''.join(answer) if hasattr(answer, '__iter__') else str(answer)
 
             # Заменяем историю на сжатую версию
