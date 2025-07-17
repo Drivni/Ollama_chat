@@ -7,7 +7,7 @@ class EnglishTeacher:
         self.modes = {
             'chat': "Свободный чат на английском",
             'correction': "Исправления ошибок",
-            'exercises': "Упражнений"
+            'exercises': "Упражнения"
         }
         self.current_mode = 'chat'
         self.exercise_types = ['grammar', 'vocabulary', 'translation']
