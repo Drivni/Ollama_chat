@@ -118,6 +118,8 @@ class OllamaChat:
         self.base_url = base_url
         self.db = ChatDatabase()
         self.current_chat_id = None
+        if self.db.list_chats():
+            self.current_chat_id = self.db.list_chats()[-1]['chat_id']
 
     def start_new_chat(self, title=None):
         if not self.list_chats():
