@@ -146,12 +146,8 @@ class OllamaChat:
         # Сохраняем сообщение пользователя
         self.db.add_message(chat_id, 'user', message)
 
-        # Получаем историю чата для контекста
-        history = self.db.get_chat_history(chat_id)
-
-        # Формируем сообщения для Ollama API
-        messages = [{"role": "user" if role == "user" else "assistant", "content": content}
-                    for role, content, _ in reversed(history)]
+        #Получаем историю чата для контекста и формируем сообщения для Ollama API
+        messages = self.get_chat_history(chat_id)
 
         # Добавляем системный промт в начало, если он задан
         if system_prompt:
@@ -203,6 +199,14 @@ class OllamaChat:
                 return chat['title']
         return None
 
+    def get_chat_history(self, chat_id):
+        # Получаем историю чата для контекста
+        history = self.db.get_chat_history(chat_id)
+
+        # Формируем сообщения для Ollama API
+        return [{"role": "user" if role == "user" else "assistant", "content": content}
+                    for role, content, _ in reversed(history)]
+
     def close(self):
         self.db.close()
 
@@ -240,92 +244,20 @@ class ChatManager(OllamaChat):
             command_text = ""
 
         if "/show" in command:
-            chat_name = self.find_chat_name(chat_id=self.current_chat_id)
-            print(f"Выбранный чат: (ID-{self.current_chat_id}): {chat_name}")
-            self.print_all_chats()
-
-        if "/delete" in command:
-            # Если указан конкретный ID чата для удаления
-            if command_text and command_text.isdigit():
-                chat_name = self.find_chat_name(chat_id=command_text)
-                if not chat_name:
-                    print("Чат с таким ID не найден")
-                    return
-
-                self.delete_chat(command_text)
-                print(f'Чат "{chat_name}" удален!')
-
-                # Если удаляем текущий чат, создаем новый автоматически
-                if self.current_chat_id == command_text:
-                    self.start_new_chat()
-                    new_chat_name = self.find_chat_name(chat_id=self.current_chat_id)
-                    print(f"Автоматически создан новый чат: {new_chat_name}")
-                return
-
-            # Если пытаемся удалить с нечисловым параметром
-            if command_text:
-                print("Неправильный параметр - ID чата должен быть числом")
-                return
-
-            for select_chat in self.list_chats():
-                self.delete_chat(select_chat["chat_id"])
-            print("Все чаты удалены!")
-
-            # Создаем новый чат после удаления всех
-            self.start_new_chat()
-            print("Автоматически создан новый чат")
-
-        if "/new" in command:
-            if command_text == "":
-                self.start_new_chat()
-                chat_name = self.find_chat_name(chat_id=self.current_chat_id)
-                print(f"Создан и выбран новый чат: {chat_name}")
-            else:
-                self.start_new_chat(command_text)
-                print(f"Создан и выбран новый чат: {command_text}")
-
-        if "/select" in command:
-            if not command_text:
-                print("Укажите ID чата для выбора")
-                return
-
-            chat_name = self.find_chat_name(chat_id=command_text)
-
-            if command_text.isdigit() and chat_name:
-                self.current_chat_id = command_text
-                print(f'Выбран чат (ID-{command_text}): "{chat_name}"')
-            else:
-                print("Чат с таким ID не найден")
-
-        if "/history" in command:
-            # Обработка флага удаления истории
-            if command_text == "-d":
-                self.db.clear_chat_history(chat_id=self.current_chat_id)
-                print("История текущего чата удалена!")
-                return
-
-            # Получение истории
-            limit = 20
-            if command_text.isdigit():
-                limit = int(command_text)
-                if limit <= 0:
-                    print("Количество сообщений должно быть положительным числом")
-                    return
-
-            history = self.db.get_chat_history(self.current_chat_id, limit=limit)
-
-            if not history:
-                print("История сообщений пуста")
-                return
-
-            messages = [{"role": "user" if role == "user" else "assistant", "content": content}
-                        for role, content, _ in reversed(history)]
-
-            print(f"\nИстория сообщений (всего: {len(messages)}):")
-            for message in messages:
-                print(f"{message['role']}: {message['content']}")
-
-        if "/help" in command or "/?" in command:
+            self._handle_show_command()
+        elif "/delete" in command:
+            self._handle_delete_command(command_text)
+        elif "/new" in command:
+            self._handle_new_command(command_text)
+        elif "/select" in command:
+            self._handle_select_command(command_text)
+        elif "/history" in command:
+            self._handle_history_command(command_text)
+        elif "/rename" in command:
+            self._handle_rename_command(command_text, command)
+        elif "/compress" in command:
+            self._handle_compress_command(command_text)
+        elif "/help" in command or "/?" in command:
             print(
                 "\nДоступные команды:\n"
                 "/help или /? - показать это сообщение\n"
@@ -333,11 +265,208 @@ class ChatManager(OllamaChat):
                 "/select <ID> - выбрать чат по ID\n"
                 "/show - показать информацию о текущем чате и список всех чатов\n"
                 "/delete [ID] - удалить конкретный чат или все чаты\n"
+                "/rename [ID] <новое_имя> - изменить имя текущего или указанного чата\n"
+                "/compress [ID] - сжать историю чата с помощью ИИ (текущего или указанного)\n"
                 "/history [N/-d] - показать историю сообщений (N последних или всю), -d - удалить историю"
             )
 
-        if "/try" in command:
+        elif "/try" in command:
             print(self.find_chat_name(chat_id=input("Number: ")))
+
+    def _handle_show_command(self):
+        chat_name = self.find_chat_name(chat_id=self.current_chat_id)
+        print(f"Выбранный чат: (ID-{self.current_chat_id}): {chat_name}")
+        self.print_all_chats()
+
+    def _handle_delete_command(self, command_text: str):
+        # Если указан конкретный ID чата для удаления
+        if command_text and command_text.isdigit():
+            chat_name = self.find_chat_name(chat_id=command_text)
+            if not chat_name:
+                print("Чат с таким ID не найден")
+                return
+
+            self.delete_chat(command_text)
+            print(f'Чат "{chat_name}" удален!')
+
+            # Если удаляем текущий чат, создаем новый автоматически
+            if self.current_chat_id == command_text:
+                self.start_new_chat()
+                new_chat_name = self.find_chat_name(chat_id=self.current_chat_id)
+                print(f"Автоматически создан новый чат: {new_chat_name}")
+            return
+
+        # Если пытаемся удалить с нечисловым параметром
+        if command_text:
+            print("Неправильный параметр - ID чата должен быть числом")
+            return
+
+        for select_chat in self.list_chats():
+            self.delete_chat(select_chat["chat_id"])
+        print("Все чаты удалены!")
+
+        # Создаем новый чат после удаления всех
+        self.start_new_chat()
+        print("Автоматически создан новый чат")
+
+    def _handle_new_command(self, command_text: str):
+        if command_text == "":
+            self.start_new_chat()
+            chat_name = self.find_chat_name(chat_id=self.current_chat_id)
+            print(f"Создан и выбран новый чат: {chat_name}")
+        else:
+            self.start_new_chat(command_text)
+            print(f"Создан и выбран новый чат: {command_text}")
+
+    def _handle_select_command(self, command_text: str):
+        if not command_text:
+            print("Укажите ID чата для выбора")
+            return
+
+        chat_name = self.find_chat_name(chat_id=command_text)
+
+        if command_text.isdigit() and chat_name:
+            self.current_chat_id = command_text
+            print(f'Выбран чат (ID-{command_text}): "{chat_name}"')
+        else:
+            print("Чат с таким ID не найден")
+
+    def _handle_history_command(self, command_text: str):
+        # Обработка флага удаления истории
+        if command_text == "-d":
+            self.db.clear_chat_history(chat_id=self.current_chat_id)
+            print("История текущего чата удалена!")
+            return
+
+        # Получение истории
+        limit = 20
+        if command_text.isdigit():
+            limit = int(command_text)
+            if limit <= 0:
+                print("Количество сообщений должно быть положительным числом")
+                return
+
+        history = self.db.get_chat_history(self.current_chat_id, limit=limit)
+
+        if not history:
+            print("История сообщений пуста")
+            return
+
+        messages = [{"role": "user" if role == "user" else "assistant", "content": content}
+                    for role, content, _ in reversed(history)]
+
+        print(f"\nИстория сообщений (всего: {len(messages)}):")
+        for message in messages:
+            print(f"{message['role']}: {message['content']}")
+
+    def _handle_rename_command(self, command_text: str, full_command: str):
+        if not command_text:
+            print("Укажите новое имя чата")
+            return
+
+        # Если указано новое имя без ID - переименовываем текущий чат
+        if not command_text.isdigit():
+            new_name = command_text
+            chat_id_to_rename = self.current_chat_id
+        else:
+            # Если первое слово - число (ID чата), а после него - новое имя
+            parts = full_command.split(maxsplit=2)
+            if len(parts) < 3:
+                print("Укажите новое имя после ID чата")
+                return
+
+            chat_id_to_rename = parts[1]
+            new_name = parts[2]
+
+            if not chat_id_to_rename.isdigit():
+                print("ID чата должен быть числом")
+                return
+
+        # Проверяем существует ли чат
+        chat_name = self.find_chat_name(chat_id=chat_id_to_rename)
+        if not chat_name:
+            print("Чат с таким ID не найден")
+            return
+
+        # Переименовываем чат
+        self.rename_chat(chat_id_to_rename, new_name)
+        print(f'Чат "{chat_name}" (ID-{chat_id_to_rename}) переименован в "{new_name}"')
+
+    def _handle_compress_command(self, command_text: str):
+        if not command_text:
+            # Сжимаем текущий чат
+            chat_id = self.current_chat_id
+        elif command_text.isdigit():
+            # Сжимаем указанный чат
+            chat_id = command_text
+        else:
+            print("Неправильный параметр - ID чата должен быть числом")
+            return
+
+        chat_name = self.find_chat_name(chat_id=chat_id)
+        if not chat_name:
+            print("Чат с таким ID не найден")
+            return
+
+        print(f"Начато сжатие истории чата '{chat_name}'...")
+
+        system_prompt = """
+Ты — ассистент, который превращает переписку в связный и сжатый конспект.
+
+Формат вывода:
+assistant: Наша история чата выглядит следующим образом...
+[Краткий связный текст на русском]
+
+Требования:
+• Преобразуй диалог в связный рассказ  
+• Сохрани:  
+  – Главные вопросы и решения  
+  – Технические детали (код, ошибки, команды)  
+  – Изменения контекста  
+• Удали:  
+  – Повторы  
+  – Приветствия/прощания  
+  – Несущественные уточнения  
+
+Стиль:
+• Четкий, деловой  
+• Используй `обратные кавычки` для кода  
+• Маркеры • для списков  
+• Без интерпретаций и домыслов  
+
+Примечания:
+• Для технических тем — точно сохраняй команды и ошибки  
+• Для творческих — фиксируй ключевые идеи  
+• При потере контекста — добавь [пояснение]
+
+Пример:
+assistant: Наша история чата выглядит следующим образом...  
+Пользователь спрашивал о Python.  
+• Предложили Pandas для CSV (`pd.read_csv()`)  
+• Обнаружили проблему кодировки — исправили `encoding='utf-8'`
+        """
+
+        try:
+            # Получаем историю сообщений
+            history = self.get_chat_history(chat_id)
+
+            if not history:
+                print("История чата пуста")
+                return
+
+            # Вызываем нейросеть для сжатия
+            answer = self.send_message(message=None, chat_id=chat_id, system_prompt=system_prompt)
+            compressed_history = ''.join(answer) if hasattr(answer, '__iter__') else str(answer)
+
+            # Заменяем историю на сжатую версию
+            for select_chat in self.list_chats():
+                self.delete_chat(select_chat["chat_id"])
+            self.db.add_message(chat_id, 'assistant', compressed_history)
+
+            print(f"История чата успешно сжата!")
+
+        except Exception as e:
+            print(f"Ошибка при сжатии истории: {str(e)}")
 
 
 # Пример использования
