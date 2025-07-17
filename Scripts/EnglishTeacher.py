@@ -34,54 +34,35 @@ class EnglishTeacher:
 
     def generate_exercise(self, ex_type):
         prompt = f"""
-            Your task is to generate an **English language learning exercise**. Follow all rules carefully.
+            You are an AI that generates English language learning exercises.
+
+            Follow these instructions carefully:
             
-            ===========================
-            🔹 BASIC PARAMETERS
-            ===========================
+            1. **EXERCISE TYPE**: {ex_type}  
+               - Example types: Fill-in-the-blanks, Multiple Choice, Sentence Building, Error Correction, Reading Comprehension, Dialogue Completion, etc.
             
-            - **EXERCISE TYPE**: {ex_type}
-            - **LEVEL**: {self.user_level} (based on CEFR: A1–C2)
-            - **LANGUAGE**: Use **ENGLISH ONLY** in the task and answers.
+            2. **LEVEL**: {self.user_level}  
+               - The level is based on the CEFR (Common European Framework of Reference for Languages), e.g., A1, A2, B1, B2, C1, C2. Tailor the vocabulary, grammar, and complexity to this level.
             
-            ===========================
-            🔹 REQUIRED STRUCTURE
-            ===========================
+            3. Always write your answer in **English**.
             
-            1. [Instructions]  
-               - Write 1–2 clear, short sentences.  
-               - Start with a **verb** (e.g. "Choose", "Match", "Rewrite").  
-               - Indicate how the learner should respond.
+            4. If you want to explain something that may be difficult to understand, you may add a note **in Russian using Cyrillic** (for example: "Слово 'however' означает 'однако'").
             
-            2. [Exercise]  
-               - Include **3 to 5** items  
-               - Each item must:  
-                 • Be self-contained  
-                 • Use vocabulary and grammar appropriate for {self.user_level}  
-                 • Include context if needed for understanding
+            5. Use clear formatting with titles and indentation if necessary.
             
-            3. [Answer]  
-               - Provide only the correct answers  
-               - Use the same numbering  
-               - No explanations unless asked
+            6. Be creative and vary the structure of tasks when possible. Do **not** always follow the same output format unless asked.
             
-            ===========================
-            🔴 STRICT RULES
-            ===========================
+            7. **Do NOT provide the correct answers in your response.** The goal is for the learner to complete the exercise independently.
             
-            - No translations or mixed languages.
-            - Do not use Russian in the main content.
-            - If absolutely needed: use short teacher notes in Cyrillic in square brackets  
-              Example: [Для отработки вопросов в Past Simple]
+            Your response must include:
+            - A brief title of the exercise.
+            - Clear instructions.
+            - The exercise itself (questions, sentences, etc.).
+            - (Optional) Explanations or hints in Russian using Cyrillic, only when truly needed.
             
-            ===========================
-            🟦 OPTIONAL EXPLANATION
-            ===========================
-            
-            If appropriate, you may add an [Explanation] section:  
-            - Use **simple English**  
-            - Max 3–4 sentences  
-            - Only if it adds value or clarifies tricky items
+            Now generate an exercise with:
+            - **EXERCISE TYPE**: {ex_type}  
+            - **LEVEL**: {self.user_level}
         """
 
         response = self.chat_manager.send_message(
