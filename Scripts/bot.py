@@ -5,47 +5,14 @@ from telebot.types import ReplyKeyboardMarkup
 from API import API_bot
 from Scripts import main
 from Scripts.EnglishTeacher import EnglishTeacher
+from Scripts.TelegramLogger import TelegramLogger
 
 API_Bot = API_bot
 bot = telebot.TeleBot(API_Bot)
 
-class TelegramLogger:
-    def __init__(self, bot, chat_id):
-        self.bot = bot
-        self.chat_id = chat_id
-        self.buffer = ""
-        self.console_out = sys.stdout
-        self.console_err = sys.stderr
-
-    def write_console(self, message):
-        if not isinstance(message, str):
-            message = str(message)
-        self.console_out.write(message)
-
-    def write(self, message):
-        self.console_out.write(message)
-        self.buffer += message
-        if '\n' in message:
-            self.flush()
-
-    def flush(self):
-        self.console_out.flush()
-        if self.buffer.strip():
-            try:
-                self.bot.send_message(self.chat_id, self.buffer)
-            except Exception as e:
-                self.console_out.write(f"Ошибка отправки лога: {e}\n")
-            finally:
-                self.buffer = ""
-
-    def cleanup(self):
-        sys.stdout = self.console_out
-        sys.stderr = self.console_err
-
-
 # Инициализация
 markup = ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=False)
-markup.add("/simple" ,"/english")
+markup.add("/simple" ,"/english", "/help")
 
 telegram_logger = TelegramLogger(bot, None)
 sys.stdout = telegram_logger
@@ -66,6 +33,7 @@ def send_welcome(message):
 @bot.message_handler(commands=['english'])
 def english_mode(message):
     telegram_logger.chat_id = message.chat.id
+    chat.do_command("/history -d")
     bot.send_message(message.chat.id, "Выберите режим изучения английского:",
                      reply_markup=english_teacher.get_mode_keyboard())
 
@@ -105,13 +73,14 @@ def start_exercise(call):
 
     ex_type = call.data.split('_')[-1]
     exercise = english_teacher.generate_exercise(ex_type)
+    english_teacher.current_mode = 'chat'
     bot.send_message(call.message.chat.id, exercise)
 
 
 @bot.message_handler(content_types=['text'])
 def handle_text(message):
-    telegram_logger.write_console(f"\nВы: {message.text}\n")
     telegram_logger.chat_id = message.chat.id
+    telegram_logger.write_console(f"\nВы: {message.text}\n")
 
     if message.text.startswith('/'):
         chat.do_command(command=message.text)
