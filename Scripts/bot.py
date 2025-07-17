@@ -45,7 +45,7 @@ class TelegramLogger:
 
 # Инициализация
 markup = ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=False)
-markup.add("/Start_Game", "/Info", "/English_Mode")
+markup.add("/simple" ,"/english")
 
 telegram_logger = TelegramLogger(bot, None)
 sys.stdout = telegram_logger
@@ -60,7 +60,7 @@ def send_welcome(message):
     telegram_logger.chat_id = message.chat.id
     chat.start_chat()
     bot.send_message(message.chat.id, "Добро пожаловать! Выберите режим:",
-                     reply_markup=english_teacher.get_mode_keyboard())
+                     reply_markup=markup)
 
 
 @bot.message_handler(commands=['english'])
@@ -68,6 +68,13 @@ def english_mode(message):
     telegram_logger.chat_id = message.chat.id
     bot.send_message(message.chat.id, "Выберите режим изучения английского:",
                      reply_markup=english_teacher.get_mode_keyboard())
+
+
+@bot.message_handler(commands=['simple'])
+def english_mode(message):
+    telegram_logger.chat_id = message.chat.id
+    english_teacher.current_mode = None
+    bot.send_message(message.chat.id, "Быбран обычный режим общения с ИИ")
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('set_mode_'))
@@ -113,10 +120,13 @@ def handle_text(message):
     if english_teacher.current_mode == 'correction':
         correction = english_teacher.correct_text(message.text)
         bot.send_message(message.chat.id, ''.join(correction))
+    elif english_teacher.current_mode == 'chat':
+        answer = english_teacher.simple_converse(message)
+        bot.send_message(message.chat.id, answer)
     else:
-        answer_str = english_teacher.simple_converse(message)
+        answer = chat.send_message(message.text, chat_id=chat.current_chat_id)
+        answer_str = ''.join(answer) if hasattr(answer, '__iter__') else str(answer)
         bot.send_message(message.chat.id, answer_str)
-
 
 while True:
     try:
