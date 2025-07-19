@@ -1,9 +1,5 @@
 import sys
-
-import main
 import telebot
-import time
-from telebot.types import ReplyKeyboardMarkup
 from API import API_bot
 
 API_Bot = API_bot
@@ -53,12 +49,3 @@ class TelegramLogger:
     def cleanup(self):
         sys.stdout = self.console_out
         sys.stderr = self.console_err
-
-
-markup = ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=False)
-markup.add("/Start_Game", "/Info")
-
-
-telegram_logger = TelegramLogger(bot, None)
-sys.stdout = telegram_logger
-sys.stderr = telegram_logger
