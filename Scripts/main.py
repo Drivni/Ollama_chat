@@ -123,8 +123,7 @@ class OllamaChat:
         self.base_url = base_url
         self.db = ChatDatabase()
         self.current_chat_id = None
-        if self.db.list_chats():
-            self.current_chat_id = self.list_chats()[0]['chat_id']
+        self.current_chat_id = self.get_current_chat_id()
 
     def start_new_chat(self, title=None):
         if not self.list_chats():
@@ -217,6 +216,13 @@ class OllamaChat:
         # Формируем сообщения для Ollama API
         return [{"role": "user" if role == "user" else "assistant", "content": content}
                     for role, content, _ in reversed(history)]
+
+    def get_current_chat_id(self):
+        list_chats = self.list_chats()
+        if list_chats:
+            return list_chats[0]['chat_id']
+        else:
+            return None
 
     def close(self):
         self.db.close()
