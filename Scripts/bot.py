@@ -95,7 +95,11 @@ def handle_text(message):
         answer = english_teacher.simple_converse(message)
         bot.send_message(message.chat.id, answer)
     else:
-        answer = chat.send_message(message.text, chat_id=chat.current_chat_id)
+        from agent import Agent, init_func
+        agent = Agent()
+        init_func(agent)
+        answer = agent.chat(message.text)
+        #answer = chat.send_message(message.text, chat_id=chat.current_chat_id)
         answer_str = ''.join(answer) if hasattr(answer, '__iter__') else str(answer)
         bot.send_message(message.chat.id, answer_str)
 
