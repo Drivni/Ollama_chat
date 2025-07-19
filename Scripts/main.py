@@ -37,6 +37,7 @@ class ChatDatabase:
         return cursor.lastrowid
 
     def add_message(self, chat_id, role, content):
+        #content = self.generator_to_string(content)
         cursor = self.conn.cursor()
         cursor.execute('''
         INSERT INTO messages (chat_id, role, content)
@@ -108,6 +109,10 @@ class ChatDatabase:
         ''', (chat_id,))
         return cursor.fetchone()[0]
 
+    @staticmethod
+    def generator_to_string(generator):
+        return ''.join(str(item) for item in generator)
+
     def close(self):
         self.conn.close()
 
@@ -137,51 +142,56 @@ class OllamaChat:
     def rename_chat(self, chat_id, new_title):
         self.db.rename_chat(chat_id, new_title)
 
-    def send_message(self, message, stream=False, chat_id=None, system_prompt=None, temperature=0.8):
+    def send_message(self, message, stream=False, chat_id=None, system_prompt=None, limit=20, temperature=0.8):
+        # Общая логика для обоих режимов (stream и non-stream)
         if chat_id is None:
             if self.current_chat_id is None:
                 self.start_new_chat()
             chat_id = self.current_chat_id
 
-        # Сохраняем сообщение пользователя
         self.db.add_message(chat_id, 'user', message)
+        messages = self.get_chat_history(chat_id, limit)
 
-        #Получаем историю чата для контекста и формируем сообщения для Ollama API
-        messages = self.get_chat_history(chat_id)
-
-        # Добавляем системный промт в начало, если он задан
         if system_prompt:
             messages.insert(0, {"role": "system", "content": system_prompt})
 
-        # Отправляем запрос к Ollama API с потоковым выводом
         response = requests.post(
             f"{self.base_url}/api/chat",
             json={
                 "model": self.model,
                 "messages": messages,
                 "options": {"temperature": temperature},
-                "stream": stream  # Включаем потоковый режим
+                "stream": stream
             },
-            stream=stream  # Важно для обработки потокового ответа
+            stream=stream
         )
 
-        if response.status_code == 200:
-            assistant_message = ""
-            # Читаем потоковые данные
-            for line in response.iter_lines():
-                if line:
-                    # Декодируем JSON из каждой строки
-                    chunk = json.loads(line.decode('utf-8'))
-                    if 'message' in chunk and 'content' in chunk['message']:
-                        content = chunk['message']['content']
-                        assistant_message += content
-                        yield content  # Постепенно возвращаем части сообщения
-
-            # После завершения потока сохраняем полное сообщение
-            self.db.add_message(chat_id, 'assistant', assistant_message)
-            return assistant_message
-        else:
+        if response.status_code != 200:
             raise Exception(f"Ошибка API: {response.status_code} - {response.text}")
+
+        if stream:
+            return self._stream_response(chat_id, response)
+        else:
+            return self._non_stream_response(chat_id, response)
+
+    def _stream_response(self, chat_id, response):
+
+        assistant_msg = ""
+        for line in response.iter_lines():
+            if line:
+                chunk = json.loads(line.decode('utf-8'))
+                if 'message' in chunk and 'content' in chunk['message']:
+                    content = chunk['message']['content']
+                    assistant_msg += content
+                    yield content
+
+        self.db.add_message(chat_id, 'assistant', assistant_msg)
+
+    def _non_stream_response(self, chat_id, response):
+        response_data = response.json()
+        assistant_msg = response_data['message']['content']
+        self.db.add_message(chat_id, 'assistant', assistant_msg)
+        return assistant_msg
 
     def list_chats(self):
         return self.db.list_chats()
@@ -200,9 +210,9 @@ class OllamaChat:
                 return chat['title']
         return None
 
-    def get_chat_history(self, chat_id):
+    def get_chat_history(self, chat_id, limit=20):
         # Получаем историю чата для контекста
-        history = self.db.get_chat_history(chat_id)
+        history = self.db.get_chat_history(chat_id, limit=limit)
 
         # Формируем сообщения для Ollama API
         return [{"role": "user" if role == "user" else "assistant", "content": content}
@@ -457,8 +467,8 @@ assistant: Наша история чата выглядит следующим 
                 return
 
             # Вызываем нейросеть для сжатия
-            answer = self.send_message(message=None, chat_id=chat_id, system_prompt=system_prompt, temperature=0.7)
-            compressed_history = ''.join(answer) if hasattr(answer, '__iter__') else str(answer)
+            compressed_history = self.send_message(message=None,
+                                                   chat_id=chat_id, system_prompt=system_prompt, temperature=0.7)
 
             # Заменяем историю на сжатую версию
             self.db.clear_chat_history(chat_id=self.current_chat_id)
@@ -474,6 +484,7 @@ assistant: Наша история чата выглядит следующим 
 if __name__ == "__main__":
     chat = ChatManager()
     chat.start_chat()
+
     # Пример диалога
     while True:
         user_input = input("\nВы: ")
