@@ -43,10 +43,11 @@ class GoogleAPISearch:
             print(f"Ошибка Google API: {e}")
             return []
 
+
 def _get_weather(latitude: float, longitude: float) -> Dict[str, Any]:
     try:
         response_weather = requests.get(
-            f"https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}"
+            f"https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&timezone=auto"
             f"&current=temperature_2m,wind_speed_10m&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m",
             timeout=10
         )
@@ -168,7 +169,7 @@ class Agent(OllamaChat):
             chat_id: int = 1,
             max_attempts: int = 3,
     ):
-
+        chat_id = self.get_current_chat_id()
         global response
         attempts = 0
         last_response = message
@@ -212,9 +213,9 @@ class Agent(OllamaChat):
         return response
 
 
-def init_func(agent):
+def init_func(ai_agent):
     # Register base tools
-    agent.register_tool(
+    ai_agent.register_tool(
         name="get_weather",
         description="Get current weather for provided coordinates in celsius.",
         parameters={
