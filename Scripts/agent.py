@@ -185,7 +185,7 @@ class Agent(OllamaChat):
                 stream=False,  # Need complete response for tool parsing
                 system_prompt=full_system_prompt,
                 temperature=self.temperature,
-                limit=attempts * 2 + 1
+                limit=attempts * 2 + 5
             )
 
             # Check for tool call
