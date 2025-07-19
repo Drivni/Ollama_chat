@@ -14,7 +14,7 @@ class ChatDatabase:
         CREATE TABLE IF NOT EXISTS chats (
             chat_id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            created_at TEXT DEFAULT (datetime('now', 'localtime'))
         )
         ''')
 
@@ -24,7 +24,7 @@ class ChatDatabase:
             chat_id INTEGER,
             role TEXT CHECK(role IN ('user', 'assistant', 'system')),
             content TEXT,
-            timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
+            timestamp TEXT DEFAULT (datetime('now', 'localtime')),
             FOREIGN KEY (chat_id) REFERENCES chats (chat_id)
         )
         ''')
@@ -137,7 +137,7 @@ class OllamaChat:
     def rename_chat(self, chat_id, new_title):
         self.db.rename_chat(chat_id, new_title)
 
-    def send_message(self, message, stream=False, chat_id=None, system_prompt=None):
+    def send_message(self, message, stream=False, chat_id=None, system_prompt=None, temperature=0.8):
         if chat_id is None:
             if self.current_chat_id is None:
                 self.start_new_chat()
@@ -159,6 +159,7 @@ class OllamaChat:
             json={
                 "model": self.model,
                 "messages": messages,
+                "options": {"temperature": temperature},
                 "stream": stream  # Включаем потоковый режим
             },
             stream=stream  # Важно для обработки потокового ответа
@@ -411,40 +412,40 @@ class ChatManager(OllamaChat):
         print(f"Начато сжатие истории чата '{chat_name}'...")
 
         system_prompt = """
-Ты — ассистент, который превращает переписку в связный и сжатый конспект.
-
-Формат вывода:
-assistant: Наша история чата выглядит следующим образом...
-[Краткий связный текст на русском]
-
-Требования:
-• Преобразуй диалог в связный рассказ  
-• Сохрани:
-  – Главные вопросы и решения  
-  – Технические детали (код, ошибки, команды)  
-  – Изменения контекста  
-  - Информацию о пользователе
-• Удали:  
-  – Повторы  
-  – Приветствия/прощания  
-  – Несущественные уточнения  
-
-Стиль:
-• Четкий, деловой  
-• Используй `обратные кавычки` для кода  
-• Маркеры • для списков  
-• Без интерпретаций и домыслов  
-
-Примечания:
-• Для технических тем — точно сохраняй команды и ошибки  
-• Для творческих — фиксируй ключевые идеи  
-• При потере контекста — добавь [пояснение]
-
-Пример:
-assistant: Наша история чата выглядит следующим образом...  
-Пользователь спрашивал о Python.  
-• Предложили Pandas для CSV (`pd.read_csv()`)  
-• Обнаружили проблему кодировки — исправили `encoding='utf-8'`
+            Ты — ассистент, который превращает переписку в связный и сжатый конспект.
+            
+            Формат вывода:
+            assistant: Наша история чата выглядит следующим образом...
+            [Краткий связный текст на русском]
+            
+            Требования:
+            • Преобразуй диалог в связный рассказ  
+            • Сохрани:
+              – Главные вопросы и решения  
+              – Технические детали (код, ошибки, команды)  
+              – Изменения контекста  
+              - Информацию о пользователе
+            • Удали:  
+              – Повторы  
+              – Приветствия/прощания  
+              – Несущественные уточнения  
+            
+            Стиль:
+            • Четкий, деловой  
+            • Используй `обратные кавычки` для кода  
+            • Маркеры • для списков  
+            • Без интерпретаций и домыслов  
+            
+            Примечания:
+            • Для технических тем — точно сохраняй команды и ошибки  
+            • Для творческих — фиксируй ключевые идеи  
+            • При потере контекста — добавь [пояснение]
+            
+            Пример:
+            assistant: Наша история чата выглядит следующим образом...  
+            Пользователь спрашивал о Python.  
+            • Предложили Pandas для CSV (`pd.read_csv()`)  
+            • Обнаружили проблему кодировки — исправили `encoding='utf-8'`
         """
 
         try:
@@ -456,7 +457,7 @@ assistant: Наша история чата выглядит следующим 
                 return
 
             # Вызываем нейросеть для сжатия
-            answer = self.send_message(message=None, chat_id=chat_id, system_prompt=system_prompt)
+            answer = self.send_message(message=None, chat_id=chat_id, system_prompt=system_prompt, temperature=0.4)
             compressed_history = ''.join(answer) if hasattr(answer, '__iter__') else str(answer)
 
             # Заменяем историю на сжатую версию

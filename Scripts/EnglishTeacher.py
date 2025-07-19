@@ -113,7 +113,8 @@ class EnglishTeacher:
         return self.chat_manager.send_message(
             prompt,
             system_prompt="You are an English teacher correcting student's work.",
-            chat_id=self.chat_manager.current_chat_id
+            chat_id=self.chat_manager.current_chat_id,
+            temperature=0.4
         )
 
     def simple_converse(self, message):

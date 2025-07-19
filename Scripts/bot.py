@@ -12,7 +12,7 @@ bot = telebot.TeleBot(API_Bot)
 
 # Инициализация
 markup = ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=False)
-markup.add("/simple" ,"/english", "/help")
+markup.add("/simple", "/english", "/help")
 
 telegram_logger = TelegramLogger(bot, None)
 sys.stdout = telegram_logger
@@ -25,6 +25,7 @@ english_teacher = EnglishTeacher(chat)
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     telegram_logger.chat_id = message.chat.id
+    chat.do_command("/history -d")
     chat.start_chat()
     bot.send_message(message.chat.id, "Добро пожаловать! Выберите режим:",
                      reply_markup=markup)
@@ -41,6 +42,7 @@ def english_mode(message):
 @bot.message_handler(commands=['simple'])
 def english_mode(message):
     telegram_logger.chat_id = message.chat.id
+    chat.do_command("/history -d")
     english_teacher.current_mode = None
     bot.send_message(message.chat.id, "Быбран обычный режим общения с ИИ")
 
@@ -96,6 +98,7 @@ def handle_text(message):
         answer = chat.send_message(message.text, chat_id=chat.current_chat_id)
         answer_str = ''.join(answer) if hasattr(answer, '__iter__') else str(answer)
         bot.send_message(message.chat.id, answer_str)
+
 
 while True:
     try:
