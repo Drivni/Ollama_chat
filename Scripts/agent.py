@@ -190,37 +190,44 @@ class Agent(OllamaChat):
 
         return tools_prompt
 
-    def _extract_tool_call(self, response: str) -> Optional[Dict[str, Any]]:
-        """Extract tool call information from LLM response."""
+    def _extract_tool_calls(self, response: str) -> List[Dict[str, Any]]:
+        """Extract multiple tool call information from LLM response."""
         if self.tool_call_prefix not in response:
-            return None
+            return []
 
-        try:
-            # Split on the tool call prefix
-            parts = response.split(self.tool_call_prefix, 1)[1].strip()
+        tool_calls = []
+        # Split the response by the tool call prefix to find all tool calls
+        parts = response.split(self.tool_call_prefix)[1:]  # Skip the first part (before first prefix)
 
-            # Split tool name and JSON args
-            tool_part, *json_parts = parts.split("\n", 1)
-            tool_name = tool_part.strip()
+        for part in parts:
+            try:
+                part = part.strip()
+                if not part:
+                    continue
 
-            args = {}
-            if json_parts:
-                args_part = str(json_parts[0].strip())
-                try:
-                    args = json.loads(args_part)
-                except json.JSONDecodeError:
-                    if self.verbose:
-                        print(f"Invalid JSON in tool call: {args_part}")
-                    return None
+                # Split tool name and JSON args
+                tool_part, *json_parts = part.split("\n", 1)
+                tool_name = tool_part.strip()
 
-            if tool_name in self.tools:
-                return {"name": tool_name, "arguments": args}
+                args = {}
+                if json_parts:
+                    args_part = json_parts[0].strip()
+                    try:
+                        args = json.loads(args_part)
+                    except json.JSONDecodeError:
+                        if self.verbose:
+                            print(f"Invalid JSON in tool call: {args_part}")
+                        continue  # Skip this tool call but try others
 
-        except Exception as e:
-            if self.verbose:
-                print(f"Error parsing tool call: {e}")
+                if tool_name in self.tools:
+                    tool_calls.append({"name": tool_name, "arguments": args})
 
-        return None
+            except Exception as e:
+                if self.verbose:
+                    print(f"Error parsing tool call: {e}")
+                continue  # Skip this tool call but try others
+
+        return tool_calls
 
     def _call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Any:
         """Execute a registered tool with provided arguments."""
@@ -249,12 +256,13 @@ class Agent(OllamaChat):
             chat_id: int = 1,
             max_attempts: int = 3,
     ):
-        chat_id = self.get_current_chat_id()
         global response
         attempts = 0
         last_response = message
 
         while attempts < max_attempts:
+            if chat_id is None:
+                chat_id = self.current_chat_id
             # Generate full prompt with tools
             full_system_prompt = f"{self.system_prompt}{self._generate_tools_prompt()}"
 
@@ -269,23 +277,27 @@ class Agent(OllamaChat):
             )
 
             # Check for tool call
-            tool_call = self._extract_tool_call(response)
+            tool_calls = self._extract_tool_calls(response)
 
-            if not tool_call:
+            if not tool_calls:
                 return response
 
+            error_tool = None
             # Execute tool
             try:
-                tool_result = self._call_tool(tool_call["name"], tool_call["arguments"])
-                tool_result_msg = self._format_tool_result(tool_call["name"], tool_result)
+                tool_result_msg = ""
+                for tool_call in tool_calls:
+                    error_tool = tool_call
+                    tool_result = self._call_tool(tool_call["name"], tool_call["arguments"])
+                    tool_result_msg += self._format_tool_result(tool_call["name"], tool_result) + "\n"
                 self.db.add_message(chat_id, 'user', tool_result_msg)
 
-                last_response = "Выведи результат в человеческом виде"
+                last_response = "Попробуй собрать еще информацию, если это необходимо или выведи ответ в человеческом виде"
                 attempts += 1
                 time.sleep(1)
 
             except Exception as e:
-                error_msg = f"Error calling tool {tool_call['name']}: {str(e)}"
+                error_msg = f"Error calling tool {error_tool['name']}: {str(e)}"
                 if chat_id is not None:
                     self.db.add_message(chat_id, 'assistant', error_msg)
                 return error_msg
@@ -301,7 +313,7 @@ if __name__ == "__main__":
         system_prompt="You are a helpful assistant.",
         verbose=True)
     init_func(agent)
-    print(AgentFunctions.get_nbrb_currency_rate("USD"))
+
     while True:
         user_input = input("\nYou: ")
 
