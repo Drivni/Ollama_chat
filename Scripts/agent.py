@@ -181,7 +181,7 @@ class Agent(OllamaChat):
 
         tools_prompt = "\n\nAVAILABLE TOOLS:\n"
         tools_prompt += f"To call a tool, respond with exactly:\n{self.tool_call_prefix} tool_name\n"
-        tools_prompt += "```json\n{\"arg1\": value1, \"arg2\": value2}\n```\n\n"
+        tools_prompt += "```json\n{\"arg1\": value1, \"arg2\": value2}\n```\nDON'T ADD ANYTHING EXTRA\n\n"
 
         tools_prompt += "TOOLS:\n"
         for tool_name, tool_info in self.tools.items():
@@ -253,16 +253,14 @@ class Agent(OllamaChat):
     def chat(
             self,
             message: str,
-            chat_id: int = 1,
-            max_attempts: int = 3,
+            max_attempts: int = 3
     ):
         global response
         attempts = 0
         last_response = message
 
         while attempts < max_attempts:
-            if chat_id is None:
-                chat_id = self.current_chat_id
+            chat_id = self.current_chat_id
             # Generate full prompt with tools
             full_system_prompt = f"{self.system_prompt}{self._generate_tools_prompt()}"
 
@@ -292,7 +290,8 @@ class Agent(OllamaChat):
                     tool_result_msg += self._format_tool_result(tool_call["name"], tool_result) + "\n"
                 self.db.add_message(chat_id, 'user', tool_result_msg)
 
-                last_response = "Попробуй собрать еще информацию, если это необходимо или выведи ответ в человеческом виде"
+                last_response = ("Попробуй собрать еще информацию, но только если это необходимо "
+                                 "или выведи ответ в доступной форме согласно условию запроса")
                 attempts += 1
                 time.sleep(1)
 
