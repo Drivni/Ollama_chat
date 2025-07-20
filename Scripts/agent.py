@@ -44,17 +44,97 @@ class GoogleAPISearch:
             return []
 
 
-def _get_weather(latitude: float, longitude: float) -> Dict[str, Any]:
-    try:
-        response_weather = requests.get(
-            f"https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&timezone=auto"
-            f"&current=temperature_2m,wind_speed_10m&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m",
-            timeout=10
-        )
-        response_weather.raise_for_status()
-        return response_weather.json()["current"]
-    except requests.RequestException as e:
-        return {"error": str(e)}
+class AgentFunctions:
+    @staticmethod
+    def get_weather(latitude: float, longitude: float) -> Dict[str, Any]:
+        try:
+            response_weather = requests.get(
+                f"https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&timezone=auto"
+                f"&current=temperature_2m,wind_speed_10m&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m",
+                timeout=10
+            )
+            response_weather.raise_for_status()
+            return response_weather.json()["current"]
+        except requests.RequestException as e:
+            return {"error": str(e)}
+
+    @staticmethod
+    def get_nbrb_currency_rate(currency_code):
+        """Получает курс валюты по отношению к BYN."""
+        try:
+            url = f"https://api.nbrb.by/exrates/rates/{currency_code}?parammode=2"
+            response = requests.get(url)
+            response.raise_for_status()  # Проверка на ошибки HTTP
+
+            data = response.json()
+            rate = data["Cur_OfficialRate"]
+            scale = data["Cur_Scale"]  # Например, для USD scale=1, а для JPY scale=100
+
+            return rate / scale  # Возвращаем курс за 1 единицу валюты
+
+        except requests.exceptions.RequestException as e:
+            print(f"Ошибка при запросе к API: {e}")
+            return None
+        except KeyError:
+            print(f"Валюта {currency_code} не найдена или API изменилось.")
+            return None
+
+    @staticmethod
+    def convert_currency(from_currency: str, to_currency: str, amount: float = 1) -> float or None:
+        """Конвертирует сумму из одной валюты в другую."""
+        if from_currency.upper() == "BYN":
+            rate_to = AgentFunctions.get_nbrb_currency_rate(to_currency)
+            if rate_to is None:
+                return None
+            converted_amount = amount / rate_to
+        elif to_currency.upper() == "BYN":
+            rate_from = AgentFunctions.get_nbrb_currency_rate(from_currency)
+            if rate_from is None:
+                return None
+            converted_amount = amount * rate_from
+        else:
+            # Конвертация через BYN (например, USD → EUR)
+            rate_from = AgentFunctions.get_nbrb_currency_rate(from_currency)
+            rate_to = AgentFunctions.get_nbrb_currency_rate(to_currency)
+
+            if rate_from is None or rate_to is None:
+                return None
+
+            converted_amount = (amount * rate_from) / rate_to
+
+        return round(converted_amount, 4)
+
+
+def init_func(ai_agent):
+    # Register base tools
+    ai_agent.register_tool(
+        name="get_weather",
+        description="Get current weather for provided coordinates in celsius.",
+        parameters={
+            "type": "object",
+            "properties": {
+                "latitude": {"type": "number", "description": "Latitude in decimal degrees"},
+                "longitude": {"type": "number", "description": "Longitude in decimal degrees"},
+            },
+            "required": ["latitude", "longitude"],
+        },
+        function=AgentFunctions.get_weather
+    )
+    ai_agent.register_tool(
+        name="convert_currency",
+        description="Convert amount from one currency to another",
+        parameters={
+            "type": "object",
+            "properties": {
+                "from_currency": {"type": "string",
+                                  "description": "Currency code to convert from (e.g., USD, EUR, RUB)"},
+                "to_currency": {"type": "string", "description": "Currency code to convert to (e.g., BYN, EUR, USD)"},
+                "amount": {"type": "number", "description": "Amount to convert", "default": 1}
+            },
+            "required": ["amount", "from_currency", "to_currency"],
+        },
+        function=AgentFunctions.convert_currency
+    )
 
 
 class Agent(OllamaChat):
@@ -213,23 +293,6 @@ class Agent(OllamaChat):
         return response
 
 
-def init_func(ai_agent):
-    # Register base tools
-    ai_agent.register_tool(
-        name="get_weather",
-        description="Get current weather for provided coordinates in celsius.",
-        parameters={
-            "type": "object",
-            "properties": {
-                "latitude": {"type": "number", "description": "Latitude in decimal degrees"},
-                "longitude": {"type": "number", "description": "Longitude in decimal degrees"},
-            },
-            "required": ["latitude", "longitude"],
-        },
-        function=_get_weather
-    )
-
-
 # Пример использования
 if __name__ == "__main__":
     agent = Agent(
@@ -238,7 +301,7 @@ if __name__ == "__main__":
         system_prompt="You are a helpful assistant.",
         verbose=True)
     init_func(agent)
-
+    print(AgentFunctions.get_nbrb_currency_rate("USD"))
     while True:
         user_input = input("\nYou: ")
 
@@ -247,6 +310,6 @@ if __name__ == "__main__":
 
         # Для демонстрации вызова инструмента можно использовать пример:
         # "What's the weather at latitude 48.8566 and longitude 2.3522?"
-        response = agent.chat(user_input)
+        response1 = agent.chat(user_input)
 
-        print(response)
+        print(response1)
