@@ -125,6 +125,12 @@ class OllamaChat:
         self.current_chat_id = None
         self.current_chat_id = self.get_current_chat_id()
 
+    def __getattribute__(self, name):
+        val = super().__getattribute__(name)
+        if name == "current_chat_id" and val is None:
+            val = self.get_current_chat_id()
+        return val
+
     def start_new_chat(self, title=None):
         if not self.list_chats():
             title = "Новый чат"
